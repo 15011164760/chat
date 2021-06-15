@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      .topChatTitle{
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+      }
+      .userListH2{
+        width:500px;
+        border:1px solid #ddd;
+        padding:10px;
+        text-align: center;
+      }
+      #userList{
+        width:500px;
+        border-bottom:1px solid #ddd;
+        padding:10px;
+      }
+      #userList .user{
+        border:1px solid #ddd;
+        margin-top:5px;
+        padding:10px;
+        position: relative;
+      }
+      #userList .moreMsg:after{
+       display: inline-block;
+       content: '';
+       width: 10px;
+       height: 10px;
+       border-radius: 50%;
+       background-color: crimson;
+       position: absolute;
+       right:-5px;
+       top:-5px;
+      }
+      #userList .user:hover{
+        background: #AAA;
+      }
+      .dialogChat{
+        border:1px solid  #ddd;
+        width:500px;
+        height:800px;
+        overflow: scroll;
+      }
+      .allChat{
+        display: flex;
+        width: 100%;
+        height: 100%;
+        border:1px solid #ddd;
+      }
+      .allChat .list{
+        width:500px;
+      }
+      .dialogChat{
+        height: 500px;
+        border:1px solid #ddd;
+        flex:1;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .dialogChat #messages{
+        flex:1;
+        padding:10px 10px 0 10px;
+        overflow: scroll;
+        border-bottom:1px solid #aaa;
+      }
+      .dialogChat #messages li{
+        /* background: chartreuse; */
+      }
+      .dialogChat .chatInput{
+        width:100%;
+        /* height: 100px;
+        max-height: 200px;
+        min-height: 100px; */
+        /* bottom: 0;
+        left:0;
+        position:absolute;
+         */
+         display: flex;
+        align-items: flex-end;
+        border:1px solid #aaa;
+      }
+      .dialogChat .chatInput button{
+         width:70px;
+         height: 40px;
+         margin-left:20px;
+      }
+      .dialogChat .chatInput textarea{
+        padding: 10px;
+        min-width:90%;
+        height: 100px;
+        max-height: 200px;
+        min-height: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="topChatTitle">在线客服 为您服务.....</div>
+      <div class='allChat'>
+        <div class="list">
+          <div class="userListH2">咨询人员列表</div>
+          <ul id="userList"></ul>
+        </div>
+        <div class="dialogChat">
+          <ul id="messages"></ul>
+          <div class="chatInput"> 
+            <textarea id="m" autocomplete="off"></textarea>
+            <button id="sendMsgFn">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+<script src="/socket.io/socket.io.js"></script>
+<!-- <script src="https://unpkg.com/vue/dist/vue.js"></script> -->
+<script src="https://code.jquery.com/jquery-1.11.1.js" rel="external nofollow" ></script>
+<script>
+  /* 理解：
+scrollTop为滚动条在Y轴上的滚动距离。
+ 
+clientHeight为内容可视区域的高度。
+ 
+scrollHeight为内容可视区域的高度加上溢出（滚动）的距离。
+ 
+从这个三个属性的介绍就可以看出来，滚动条到底部的条件即为scrollTop + clientHeight == scrollHeight。 */
+function divscrollFn(el){
+  // let el=event.target;
+    if(el.scrollHeight){
+      el.scrollTop=el.scrollHeight-el.clientHeight;
+      console.log(el.scrollTop);
+      return el.scrollTop
+    }
+  }
+  //简单版： 定时器期间，只执行最后一次操作
+var throttling = (fn, wait) => {
+	let timer;
+	let context, args;
+ 
+	let run = () => {
+		timer=setTimeout(()=>{
+			fn.apply(context,args);
+			clearTimeout(timer);
+			timer=null;
+		},wait);
+	}
+ 
+	return function () {
+		context=this;
+		args=arguments;
+		if(!timer){
+			console.log("throttle, set");
+			run();
+		}else{
+			console.log("throttle, ignore");
+		}
+	}
+ 
+}
+//获取聊天记录
+function findUserChatMsgFn(id){
+      $.ajax({
+             type: "GET",
+             url: "/chat/findUserChatMsg",
+             data: {id:id},
+             dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+                let arr=res.data;
+                let all=arr.reduce((total,item)=>{
+                  return  total+=`<li>${item.type==1?item.id:'客服'}:${item.msg}</li>`;
+                },'')
+                $('#messages').html(all);
+                $('#messages').scrollTop= divscrollFn($('#messages').get(0));
+               }
+             }
+         });
+    }
+  let toOneObj={};
+  let activeIndex='';
+  function uploadList(userList){
+    let lis=userList.map((item,index)=>`<li class="user" index=`+index+` data-id=`+item.id+`>${index+1}-${item._id}--${item.id}</li>`);
+          $('#userList').html(lis);
+          $(".user").click(function(a){
+           let index= $(this).index();
+           $(this).removeClass('moreMsg')
+           $(this).css({background:'#ddd'}).siblings().css({background:''});
+           let id=userList[index].id;
+           toOneObj.id=id;
+           findUserChatMsgFn(id);
+           console.log(userList[index].id,index);
+           $(".dialogChat").show();
+          })
+  }
+  function getDataListFn(){
+    $.ajax({
+             type: "GET",
+             url: "/chat/getUserList",
+             data: {
+               username:'admin',
+               password:'admin'
+             },
+            //  dataType: "json",
+             success: function(res){
+              console.log(res);
+               if(res.code==200){
+                uploadList(res.data)
+               }
+             }
+    });
+  }
+  $(function () {
+    $(".dialogChat").hide();
+    getDataListFn();
+    var socket = io();
+       //有上线的人就更新列表
+       socket.on('getAllList',function(userList){
+           console.log(userList);
+           getDataListFn();
+        });
+       socket.on('servicePeople',function(obj){
+         //当前窗口的聊天人和新上线的人是不是一个人
+        if(obj.id==toOneObj.id){
+          toOneObj={...obj};
+          $('#messages').append($('<li>').text(obj.id+":"+obj.msg));
+            $('#messages').scrollTop= divscrollFn($('#messages').get(0));
+        }else{
+          $("#userList .user").each(function(){
+            console.log($(this).attr('data-id'),obj.id)
+            //列表中不是当前的会话窗口的时候给出来消息提示 
+            if($(this).attr('data-id')==obj.id){
+              $(this).addClass('moreMsg')
+            }
+          });
+        }
+          
+        });
+        //下线用户刷新列表
+        socket.on('loginOut',function(userList){
+           console.log(userList);
+          //  uploadList(userList)
+        });
+   function msgToOne(){
+       if($('#m').val().trim()){
+        let sendObj={
+          id:toOneObj.id,
+          to:'service',
+          time:new Date().getTime(),
+          msg:$('#m').val(),
+          type:2,//1是发到客服 2是发到个人
+          isRead:false
+        }
+        $('#messages').append($('<li>').text("客服:"+$('#m').val()));
+          socket.emit('toOne', {msg:$('#m').val(),to:toOneObj.id,time:new Date().getTime()});
+           $('#m').val('');
+           $('#messages').scrollTop= divscrollFn($('#messages').get(0));
+          $.ajax({
+             type: "POST",
+             url: "/chat/saveUserChatMsg",
+             data: {sendObj:JSON.stringify(sendObj)},
+            //  dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+               }
+             }
+         });
+        $('#m').val('');
+      }
+    }  
+    $('#sendMsgFn').click(function(e){
+      msgToOne()
+    });
+    
+    let enterMsgT=throttling(enterMsg,500);
+    $(document).keydown(function(event){
+      enterMsgT(event);
+　　　});
+      function enterMsg(event){
+        let isFocus=$("#m").is(":focus");
+　　　　　console.log(isFocus,event.keyCode);
+        if(isFocus&&event.keyCode==13){
+          msgToOne()
+        }
+      }
+  });
+</script>
+    

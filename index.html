@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+      .topChatTitle{
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+      }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; 
+      margin-bottom: 100px;
+      }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+    </style>
+  </head>
+  <body>
+    <div class="topChatTitle">在线客服 为您服务.....</div>
+    <ul id="userList"></ul>
+    <ul id="messages"></ul>
+    <form action="">
+      <input id="m" autocomplete="off" /><button>Send</button>
+    </form>
+  </body>
+</html>
+<script src="/socket.io/socket.io.js"></script>
+<!-- <script src="http://pv.sohu.com/cityjson?ie=utf-8"></script> -->
+<script src="https://code.jquery.com/jquery-1.11.1.js" rel="external nofollow" ></script>
+<script>
+  //获取聊天记录
+  function findUserChatMsgFn(id){
+      $.ajax({
+             type: "GET",
+             url: "/chat/findUserChatMsg",
+             data: {id:id},
+             dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+                let arr=res.data;
+                let all=arr.reduce((total,item)=>{
+                  return  total+=`<li>${item.type==1?"我:":'客服:'}${item.msg}</li>`;
+                },'')
+                $('#messages').html(all);
+               }
+             }
+         });
+    }
+  $(function () {
+    //获取聊天记录
+    if(localStorage.getItem('username')){
+      findUserChatMsgFn(localStorage.getItem('username'));
+    }
+    var socket = io();
+    socket.on('postUsername',function(msg){
+      // 用户刷新获取首次进入的时候
+      if(!localStorage.getItem('username')){
+        localStorage.setItem('username',msg);
+        socket.emit('login',{
+          id:msg
+        });
+      }else{
+        // let removeMsg=localStorage.getItem('username');
+        // localStorage.setItem('username',msg);
+        socket.emit('addUser',{
+          id:localStorage.getItem('username'),
+          // removeMsgId:removeMsg
+        });
+      }
+    });
+    $('form').submit(function(){
+      if($('#m').val().trim()){
+        let sendObj={
+          id:localStorage.getItem('username'),
+          to:'service',
+          time:new Date().getTime(),
+          msg:$('#m').val(),
+          type:1,//1是发到客服 2是发到个人
+          isRead:false
+        }
+        socket.emit('chat message', sendObj);
+        $('#messages').append($('<li>').text("我:"+sendObj.msg));
+          $.ajax({
+             type: "POST",
+             url: "/chat/saveUserChatMsg",
+             data: {sendObj:JSON.stringify(sendObj)},
+            //  dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+               }
+             }
+         });
+        $('#m').val('');
+        
+      }
+      return false;
+    });
+    socket.on('toOne', function(objMsg){
+      console.log(objMsg);
+      if(localStorage.getItem('username')==objMsg.to){
+        $('#messages').append($('<li>').text("客服:"+objMsg.msg));
+      }
+    });
+  })
+</script>
+
+    
