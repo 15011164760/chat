@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
   <head>
-    <title>Socket.IO chat</title>
+    <title>咨询</title>
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
       .topChatTitle{
@@ -95,15 +95,35 @@
              success: function(res){
                console.log(res);
                if(res.code==200){
-                console.log("保存成功")
+                console.log("保存成功");
                }
              }
          });
+         //修改用户列表  消息提醒
+         upLoadUserList(sendObj);
         $('#m').val('');
         
       }
       return false;
     });
+    //修改客服列表数据参数 有消息的展示消息红点
+    function upLoadUserList(sendObj){
+      console.log("sendObj===>",sendObj)
+      sendObj.hasNewMsg=true;
+      $.ajax({
+             type: "POST",
+             url: "/chat/upLoadUserList",
+             data: {sendObj:JSON.stringify(sendObj)},
+            //  dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+               }
+             }
+         });
+    }
+    //更新聊天的记录
     socket.on('toOne', function(objMsg){
       console.log(objMsg);
       if(localStorage.getItem('username')==objMsg.to){

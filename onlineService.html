@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
   <head>
-    <title>Socket.IO chat</title>
+    <title>在线客服</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       .topChatTitle{
@@ -185,24 +185,44 @@ function findUserChatMsgFn(id){
              }
          });
     }
+    //点击进入到人的聊天记录之后就清除消息提醒
+    function upMsgTipList(sendObj){
+      let dataObj=JSON.parse(JSON.stringify(sendObj));
+      dataObj.hasNewMsg=false;
+      delete dataObj._id;
+      console.log("dataObj===>",dataObj)
+      $.ajax({
+             type: "POST",
+             url: "/chat/upLoadUserList",
+             data: {sendObj:JSON.stringify(dataObj)},
+            //  dataType: "json",
+             success: function(res){
+               console.log(res);
+               if(res.code==200){
+                console.log("保存成功")
+               }
+             }
+         });
+    };
   let toOneObj={};
   let activeIndex='';
   function uploadList(userList){
-    let lis=userList.map((item,index)=>`<li class="user" index=`+index+` data-id=`+item.id+`>${index+1}-${item._id}--${item.id}</li>`);
+    let lis=userList.map((item,index)=>`<li class="user ${item.hasNewMsg?'moreMsg':''}" index=${index} data-id=${item.id}>${index+1}-${item._id}--${item.id}</li>`);
           $('#userList').html(lis);
           $(".user").click(function(a){
-           let index= $(this).index();
-           $(this).removeClass('moreMsg')
-           $(this).css({background:'#ddd'}).siblings().css({background:''});
-           let id=userList[index].id;
-           toOneObj.id=id;
-           findUserChatMsgFn(id);
-           console.log(userList[index].id,index);
-           $(".dialogChat").show();
+              let index= $(this).index();
+              $(this).removeClass('moreMsg')
+              $(this).css({background:'#ddd'}).siblings().css({background:''});
+              let id=userList[index].id;
+              toOneObj.id=id;
+              findUserChatMsgFn(id);
+              console.log(userList[index],index);
+              upMsgTipList(userList[index]);
+              $(".dialogChat").show();
           })
   }
   function getDataListFn(){
-    
+
     $.ajax({
              type: "GET",
              url: "/chat/getUserList",

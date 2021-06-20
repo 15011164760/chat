@@ -40,7 +40,7 @@ app.get('/chat/getUserList', function (req, res) {
           }
           res.send(data);
         } else {
-          console.log("result========>", result);
+          // console.log("result========>", result);
           let data = {
             code: 200,
             message: '请求成功',
@@ -55,9 +55,32 @@ app.get('/chat/getUserList', function (req, res) {
   } else {
     res.end("参数错误");
   }
-
-
-
+});
+//修改用户列表
+app.post('/chat/upLoadUserList', urlencodedParser,function (req, res) {
+  console.log("======req.body.===",req.body.sendObj);
+    loadDb(function (db, dbase) {
+  let params = JSON.parse(req.body.sendObj);
+      dbase.collection("userList").update({id:params.id},{$set:params},function(err, result){
+        if (err) {
+          let data = {
+            code: 100,
+            message: '请求失败',
+            data: err
+          }
+          res.send(data);
+        } else {
+          // console.log("result========>", result);
+          let data = {
+            code: 200,
+            message: '请求成功',
+            data: result
+          }
+          res.send(data);
+          db.close();
+        }
+      })
+    })
 });
 //聊天记录查看
 app.get('/chat/findUserChatMsg', function (req, res) {
